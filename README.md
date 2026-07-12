@@ -209,7 +209,7 @@ TFT	     | ძლიერი multivariate forecasting, attention mechanism	   |
 Tree-based მოდელები (LightGBM, XGBoost) აჩვენებენ კარგ შედეგებს feature engineering-ის გამოყენებით, განსაკუთრებით tabular მონაცემებზე.
 Deep learning მოდელები (DLinear, N-BEATS, PatchTST) უკეთ უმკლავდებიან complex temporal patterns-ს და გრძელვადიან დამოკიდებულებებს.
 Prophet ეფექტურია trend და seasonality-ის მარტივი შემთხვევებისთვის, თუმცა რთულ მონაცემებზე ნაკლებად მოქნილია.
-საბოლოოდ, საუკეთესო შედეგი მიღწეულ იქნა N-BEATS მოდელით, რომელმაც ყველაზე ეფექტურად დაიჭირა როგორც სეზონურობა, ასევე არაწრფივი ცვლილებები.
+საბოლოოდ, საუკეთესო შედეგი მიღწეულ იქნა LGBM მოდელით, რომელმაც ყველაზე ეფექტურად დაიჭირა როგორც სეზონურობა, ასევე არაწრფივი ცვლილებები.
 
 mlflow:
 https://dagshub.com/tsarc21/Walmart-Recruiting---Store-Sales-Forecasting.mlflow/#/experiments
