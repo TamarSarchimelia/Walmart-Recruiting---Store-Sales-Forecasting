@@ -211,4 +211,5 @@ Deep learning მოდელები (DLinear, N-BEATS, PatchTST) უკეთ
 Prophet ეფექტურია trend და seasonality-ის მარტივი შემთხვევებისთვის, თუმცა რთულ მონაცემებზე ნაკლებად მოქნილია.
 საბოლოოდ, საუკეთესო შედეგი მიღწეულ იქნა N-BEATS მოდელით, რომელმაც ყველაზე ეფექტურად დაიჭირა როგორც სეზონურობა, ასევე არაწრფივი ცვლილებები.
 
-
+mlflow:
+https://dagshub.com/tsarc21/Walmart-Recruiting---Store-Sales-Forecasting.mlflow/#/experiments
