@@ -146,7 +146,7 @@ Identity Stack უფრო თავისუფალია და სწა�
 როგორ მოვამზადეთ მონაცემები?
 თავდაპირველად გავაერთიანეთ Train, Features და Stores ცხრილები. შემდეგ Store და Department გავაერთიანეთ ერთ იდენტიფიკატორად — unique_id, რათა თითოეული Store–Department დამოუკიდებელ დროით რიგად ქცეულიყო.
 Date გადავაკეთეთ თარიღის ფორმატში და დავარქვით ds, ხოლო Weekly_Sales გახდა სამიზნე ცვლადი y. მიუხედავად იმისა, რომ გაერთიანებულ მონაცემებში დამატებითი ინფორმაცია არსებობდა, N-BEATS-ის ძირითად Input-ად ჩვენ გამოვიყენეთ unique_id, ds და y.
-
+![img alt](https://github.com/TamarSarchimelia/Walmart-Recruiting---Store-Sales-Forecasting/blob/bc8d0444990e24f3954464033e4abda44a39ebf3/Screenshot%20from%202026-07-25%2018-43-38.png)
 4.5 LightGBM
 
 დავამატე Lag_52 ასევე Holiday_Lag52 რაც იგივე, რაც IsHoliday × Lag_52. ვცადე სხვადასხვა ჰიპერპარამტრები რანდომ სეარჩით და საბოლოოდ საუკეთესო აღმოჩნდა:
