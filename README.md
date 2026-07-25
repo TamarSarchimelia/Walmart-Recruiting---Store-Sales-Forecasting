@@ -85,33 +85,125 @@ SARIMA-მ ARIMA-სთან შედარებით უკეთესი 
 SARIMA უკეთ მუშაობს სეზონურ მონაცემებზე, თუმცა მაინც რჩება ლინეარული მოდელი და ვერ ადაპტირდება რთულ არაწრფივ სტრუქტურებზე.
 
 4.3 DLinear
-როგორ მუშაობს
-DLinear არის თანამედროვე deep learning forecasting მოდელი, რომელიც მონაცემს შლის ორ ნაწილად:
-  Trend component 
-  Seasonal component 
-შემდეგ თითოეულზე იყენებს ცალკე linear layer-ს.
 
-როგორ გამოვიყენეთ
-მოდელი გაწვრთნილია:
-  1 წლის lookback window-ზე 
-  optimized loss function (MAPE/MAE) 
-  MLflow tracking-ით 
+რა არის DLinear?
+DLinear არის Deep Learning მოდელი, რომელიც დროითი რიგების პროგნოზირებისთვის გამოიყენება. სახელწოდება მოდის სიტყვებიდან Decomposition და Linear, რადგან იგი დროით რიგს ჯერ კომპონენტებად შლის და შემდეგ Linear ფენებით ამუშავებს.
+ჩვენს შემთხვევაში თითოეული დროითი რიგი წარმოადგენდა კონკრეტული Store–Department-ის ყოველკვირეულ გაყიდვებს. მოდელი იღებდა წინა 52 კვირის Weekly Sales მონაცემებს და მათ საფუძველზე მომავალი გაყიდვების პროგნოზს ქმნიდა.
+DLinear-ის მთავარი უპირატესობა მისი მარტივი არქიტექტურაა. მას არ სჭირდება ხელით შექმნილი მახასიათებლები, რადგან დამოკიდებულებებს უშუალოდ ისტორიული გაყიდვებიდან სწავლობს.
+როგორ მუშაობს DLinear?
+DLinear ისტორიულ დროით რიგს ორ ძირითად ნაწილად ყოფს:
+Trend კომპონენტი;
+Seasonal ან Residual კომპონენტი.
+Trend აღწერს გაყიდვების გრძელვადიან მიმართულებას — დროთა განმავლობაში იზრდება, მცირდება თუ სტაბილურია გაყიდვები.
+Seasonal კომპონენტი აღწერს Trend-ის გარშემო არსებულ მოკლევადიან რყევებსა, პერიოდულად განმეორებად მკვეთრ რყევებს , ცვლილებებს (შობა ახალიწელი ბლექ ფრაიდეი) და განმეორებად ცვლილებებს.
+Trend-ის გამოსაყოფად მოდელი იყენებს Moving Average-ს. შემდეგ Seasonal კომპონენტი გამოითვლება ორიგინალური სერიიდან Trend-ის გამოკლებით.
+Trend და Seasonal ნაწილები ცალ-ცალკე გადაეცემა ორ Linear ფენას. ერთი ფენა ქმნის Trend Forecast-ს, მეორე კი Seasonal Forecast-ს. საბოლოოდ ორივე პროგნოზი ერთმანეთს ემატება და მიიღება მოდელის საბოლოო შედეგი.
+აქვს თუ არა DLinear-ს Stack-ები?
+N-BEATS-ისგან განსხვავებით, DLinear-ს Stack-ები და Block-ები არ აქვს.
+მისი არქიტექტურა შედგება:
+Series Decomposition ეტაპისგან;
+Trend Linear ფენისგან;
+Seasonal Linear ფენისგან;
+ორი პროგნოზის შეკრებისგან.
+ამიტომ DLinear გაცილებით მარტივი მოდელია. N-BEATS პროგნოზს რამდენიმე Block-ის Forecast-ების შეკრებით იღებს, ხოლო DLinear — Trend და Seasonal პროგნოზების შეკრებით.
+როგორ მოვამზადეთ მონაცემები?
+თავდაპირველად გავაერთიანეთ Train, Features და Stores ცხრილები.
+შემდეგ Store და Department გავაერთიანეთ ერთ იდენტიფიკატორად — unique_id, რათა თითოეული Store–Department დამოუკიდებელ დროით რიგად ქცეულიყო.
+Date გადავაკეთეთ თარიღის ფორმატში და დავარქვით ds, ხოლო Weekly_Sales გახდა სამიზნე ცვლადი y.
+მოდელის ძირითადი Input იყო:
+unique_id;
+ds;
+y.
+მიუხედავად იმისა, რომ მონაცემებში გვქონდა Temperature, Fuel Price, CPI, Unemployment და IsHoliday, ჩვენს DLinear მოდელში ძირითადად ისტორიული Weekly Sales გამოვიყენეთ.
+Future Exogenous ცვლადების დამატებაც ვცადეთ, თუმცა გამოყენებულ NeuralForecast DLinear ვერსიაში ისინი მხარდაჭერილი არ იყო.
 
-გაუმჯობესებები
-  ჰიპერპარამეტრების tuning 
-  სწორი input window არჩევა 
-  loss function-ის შეცვლა პროცენტულ შეცდომაზე ფოკუსირებით 
+რას ნიშნავს input_size?
+ჩვენს მოდელში:
+input_size = 52.
+ეს ნიშნავს, რომ მოდელი თითოეული პროგნოზისთვის წინა 52 კვირის გაყიდვებს იყენებდა.
+52 კვირა დაახლოებით ერთ სრულ წელს მოიცავს, რაც Walmart-ის გაყიდვებისთვის მნიშვნელოვანია, რადგან მონაცემებში ძლიერი წლიური სეზონურობა და სადღესასწაულო პერიოდებთან დაკავშირებული ცვლილებები არსებობს.
+ტრენინგის დროს ერთი სერიიდან იქმნებოდა რამდენიმე მოძრავი ფანჯარა. მაგალითად, მოდელი ჯერ იყენებდა კვირებს 1–52, შემდეგ 2–53, შემდეგ 3–54 და ასე შემდეგ.
+რატომ გავფილტრეთ დროითი რიგები?
+DLinear-ს სჭირდება საკმარისი რაოდენობის ისტორიული მონაცემი, რათა 52-კვირიანი Input ფანჯარა შექმნას.
+ზოგ Store–Department სერიას მხოლოდ რამდენიმე დაკვირვება ჰქონდა, ამიტომ მათი გამოყენება შეუძლებელი იყო.
+საწყისად გვქონდა 3331 დროითი რიგი. ფილტრაციის შემდეგ დარჩა 2895სერია, ხოლო 436 მოკლე სერია ამოვიღეთ.
+ეს აუცილებელი იყო იმისთვის, რომ თითოეულ გამოყენებულ სერიაში მინიმუმ 52 ისტორიული კვირა ყოფილიყო და მოდელს სრულფასოვანი Input ფანჯარა შეექმნა.
+როგორ გავაკეთეთ Validation?
+მონაცემები შემთხვევითად არ გაგვიყვია, რადგან Time Series-ში Random Split-მა შეიძლება მომავალი ინფორმაცია ტრენინგში გადაიტანოს.
+თითოეული დროითი რიგის ბოლო 40 კვირა გამოვყავით Validation-ისთვის, ხოლო ყველა წინა კვირა ტრენინგისთვის გამოვიყენეთ.
+ამგვარად მოდელი მხოლოდ წარსულ მონაცემებზე სწავლობდა და შემდეგ მომავალი პერიოდის პროგნოზირებით მოწმდებოდა.
+ეს რეალურ Forecasting პროცესს უფრო სწორად ასახავს.
+როგორ მიმდინარეობდა ტრენინგი?
+ტრენინგის დროს მოდელი იღებდა 52-კვირიან ისტორიულ ფანჯარას და Moving Average-ის საშუალებით Trend და Seasonal კომპონენტებად შლიდა.
+შემდეგ ორივე კომპონენტი შესაბამის Linear ფენაში გადიოდა და მომავალი პერიოდის პროგნოზს ქმნიდა.
+მიღებული პროგნოზი რეალურ Weekly Sales მნიშვნელობებს Loss Function-ის საშუალებით შედარდებოდა.
+Backpropagation ითვლიდა, როგორ უნდა შეცვლილიყო Linear ფენების Weight-ები შეცდომის შესამცირებლად, ხოლო Optimizer მათ Learning Rate-ის შესაბამისად აახლებდა.
+ეს პროცესი მრავალჯერ მეორდებოდა სხვადასხვა Store–Department სერიასა და დროით ფანჯარაზე.
+რა პარამეტრები გამოვიყენეთ?
+input_size = 52; 
+h = 40 (Forecast Horizon); 
+max_steps = 500 (Baseline); 
+learning_rate = 0.001. 
+input_size = 52 ნიშნავს, რომ მოდელი პროგნოზის შესაქმნელად იყენებდა წინა 52 კვირის გაყიდვებს.
+Forecast Horizon (h = 40) ნიშნავს, რომ მოდელი ერთდროულად პროგნოზირებდა მომდევნო 40 კვირის გაყიდვებს.
+Baseline მოდელის შედეგი იყო:
+WMAE = 1822.22.
 
-შედეგი
-  DLinear-მ მნიშვნელოვნად გააუმჯობესა შედეგი:
-  უკეთესი generalization 
-  ნაკლები error ვიდრე ARIMA/SARIMA 
-  სტაბილური პროგნოზი 
+შემდეგ ჩავატარეთ ჰიპერპარამეტრების ტუნინგი და შევცვალეთ:
+input_size;
+max_steps;
+learning_rate;
+scaler_type;
+loss function;
+batch_size;
+windows_batch_size;
+Moving Average Window.
+რა ტუნინგები ჩავატარეთ?
+max_steps გავზარდეთ 500-დან 1000-მდე, რათა მოდელს Weight-ების უკეთ შესწავლისთვის მეტი Optimization Step ჰქონოდა.
+learning_rate შევამცირეთ 0.001-დან 0.0005-მდე. ამით Weight-ების განახლება უფრო ფრთხილად და სტაბილურად მიმდინარეობდა.
+Standard Scaler-ის ნაცვლად გამოვიყენეთ Robust Scaler, რადგან Walmart-ის გაყიდვებში დიდი სადღესასწაულო პიკები და Outlier-ები გვხვდებოდა. Robust Scaler მათ გავლენას ამცირებდა.
+Loss Function-ად გამოვიყენეთ Huber Loss. იგი მცირე შეცდომებზე MSE-ის მსგავსად მუშაობს, ხოლო დიდ შეცდომებზე MAE-ის მსგავსად, ამიტომ Outlier-ების გავლენას ამცირებს.
+ასევე ვცადეთ batch_size = 128 და windows_batch_size = 512, თუმცა უკეთესი შედეგი მოგვცა batch_size = 64 და windows_batch_size = 1024 კონფიგურაციამ.
+Moving Average Window-ის 25-მდე შეცვლაც ვცადეთ, მაგრამ ამ ექსპერიმენტის WMAE იყო 1841.68, რაც საუკეთესო შედეგზე უარესი აღმოჩნდა.
+საუკეთესო DLinear კონფიგურაცია
+ტუნინგის შედეგად საუკეთესო პარამეტრები იყო:
+input_size = 52;
+max_steps = 1000;
+learning_rate = 0.0005;
+scaler_type = robust;
+loss = Huber Loss;
+batch_size = 64;
+windows_batch_size = 1024.
+რა შედეგები მივიღეთ?
+საუკეთესო DLinear მოდელის Validation შედეგები იყო:
+MAE = 1788.31;
+RMSE = 3782.50;
+WMAE = 1815.42;
+R² = 0.9721.
+MAE აჩვენებს, საშუალოდ რამდენით განსხვავდებოდა პროგნოზი რეალური Weekly Sales-ისგან.
+RMSE დიდ შეცდომებს უფრო მკაცრად აფასებს. მისი MAE-ზე მნიშვნელოვნად მაღალი მნიშვნელობა მიუთითებს, რომ მონაცემებში რამდენიმე დიდი შეცდომაც არსებობდა.
+R² = 0.9721 ნიშნავს, რომ მოდელმა Validation მონაცემების ცვლილებების დაახლოებით 97.2% ახსნა.
+WMAE Walmart-ის ოფიციალური მეტრიკაა და Holiday კვირების შეცდომებს უფრო დიდ წონას ანიჭებს. Baseline მოდელის WMAE იყო 1822.22, ხოლო გაუმჯობესებული მოდელის — 1815.42.
+Kaggle Submission
+![img alt](https://github.com/TamarSarchimelia/Walmart-Recruiting---Store-Sales-Forecasting/blob/aa49155432d3c28f15d6c99d1d3389caafd60f7c/img/10.png)
+![img alt](https://github.com/TamarSarchimelia/Walmart-Recruiting---Store-Sales-Forecasting/blob/aa49155432d3c28f15d6c99d1d3389caafd60f7c/img/11.png)
+![img alt](https://github.com/TamarSarchimelia/Walmart-Recruiting---Store-Sales-Forecasting/blob/aa49155432d3c28f15d6c99d1d3389caafd60f7c/img/12.png)
+![img alt](https://github.com/TamarSarchimelia/Walmart-Recruiting---Store-Sales-Forecasting/blob/aa49155432d3c28f15d6c99d1d3389caafd60f7c/img/13.png)
 
-ანალიზი
-მიუხედავად იმისა, რომ მოდელი ლინეარულია, decomposition მიდგომამ მას მისცა ძლიერი უნარი სეზონურობის და ტრენდის დაჭერისთვის.
-თუმცა:
-  ვერ ასახავს ძალიან არაწრფივ პიკებს სრულად 
+
+DLinear-ის უპირატესობები და შეზღუდვები
+DLinear-ის მთავარი უპირატესობებია მარტივი არქიტექტურა, სწრაფი ტრენინგი, შედარებით მცირე რაოდენობის პარამეტრები და Trend-ისა და Seasonal კომპონენტების ცალ-ცალკე სწავლა.7/25/20267/25/2026
+ასევე არ არის აუცილებელი Lag და Rolling Features-ის ხელით შექმნა.
+მისი შეზღუდვაა ის, რომ ძირითადად Linear დამოკიდებულებებს სწავლობს და ძალიან რთულ არაწრფივ პატერნებზე შეიძლება სუსტი იყოს.
+მოდელს ასევე უჭირს მოკლე დროითი რიგების დამუშავება და ჩვენს გამოყენებულ ვერსიაში Future Exogenous Variables მხარდაჭერილი არ იყო.
+დასკვნა
+საბოლოოდ DLinear-მა თითოეული Store–Department-ის წინა 52 კვირის გაყიდვები Trend და Seasonal კომპონენტებად დაშალა.
+შემდეგ ორივე კომპონენტი ცალკე Linear ფენით დაამუშავა და საბოლოო პროგნოზი მათი შეკრებით მიიღო.
+ტუნინგის დროს შევცვალეთ input_size, max_steps, learning_rate, scaler, Loss Function, batch_size, windows_batch_size და Moving Average Window.
+საუკეთესო მოდელის WMAE იყო 1815.42, ხოლო R² — 0.9721.
+Validation-ზე მოდელმა Baseline-ზე უკეთესი შედეგი აჩვენა, თუმცა Kaggle Submission-ზე საბოლოო Score მოკლე სერიებისთვის გამოყენებული Fallback მეთოდის გამო გაუარესდა.
+
+
 
 4.4 N-BEATS
 რა არის N-BEATS?
@@ -146,14 +238,14 @@ Identity Stack უფრო თავისუფალია და სწა�
 როგორ მოვამზადეთ მონაცემები?
 თავდაპირველად გავაერთიანეთ Train, Features და Stores ცხრილები. შემდეგ Store და Department გავაერთიანეთ ერთ იდენტიფიკატორად — unique_id, რათა თითოეული Store–Department დამოუკიდებელ დროით რიგად ქცეულიყო.
 Date გადავაკეთეთ თარიღის ფორმატში და დავარქვით ds, ხოლო Weekly_Sales გახდა სამიზნე ცვლადი y. მიუხედავად იმისა, რომ გაერთიანებულ მონაცემებში დამატებითი ინფორმაცია არსებობდა, N-BEATS-ის ძირითად Input-ად ჩვენ გამოვიყენეთ unique_id, ds და y.
-![img alt](https://github.com/TamarSarchimelia/Walmart-Recruiting---Store-Sales-Forecasting/blob/bc8d0444990e24f3954464033e4abda44a39ebf3/Screenshot%20from%202026-07-25%2018-43-38.png)
+![img alt](https://github.com/TamarSarchimelia/Walmart-Recruiting---Store-Sales-Forecasting/blob/aa49155432d3c28f15d6c99d1d3389caafd60f7c/img/1.png)
 
 რატომ გავფილტრეთ დროითი რიგები?
 მოდელს ჰქონდა input_size = 52, ხოლო პროგნოზის ჰორიზონტი იყო h = 40. ამიტომ თითოეულ სერიას მინიმუმ 92 თანმიმდევრული კვირა სჭირდებოდა: 52 კვირა Input-ისთვის და ბოლო 40 კვირა Validation-ისთვის.
 ჩვენ შევამოწმეთ როგორც დაკვირვებების რაოდენობა, ასევე კვირების თანმიმდევრულობა. თუ სერია 92 კვირაზე მოკლე იყო ან რომელიმე კვირა აკლდა, ის ამოვიღეთ, რადგან ასეთ შემთხვევაში 52-კვირიანი Input სრულ და ერთგვაროვან პერიოდს აღარ წარმოადგენდა.
-![img alt](https://github.com/TamarSarchimelia/Walmart-Recruiting---Store-Sales-Forecasting/blob/4aef5b5ed43cdfa8de2d46821afab68e4cf1b74a/Screenshot%20from%202026-07-25%2018-47-49.png)
+![img alt](https://github.com/TamarSarchimelia/Walmart-Recruiting---Store-Sales-Forecasting/blob/aa49155432d3c28f15d6c99d1d3389caafd60f7c/img/2.png)
 
-![img alt](https://github.com/TamarSarchimelia/Walmart-Recruiting---Store-Sales-Forecasting/blob/a0372d1a1a939e6ea812b2ba74c0b710b2f839c1/Screenshot%20from%202026-07-25%2018-49-07.png)
+![img alt](https://github.com/TamarSarchimelia/Walmart-Recruiting---Store-Sales-Forecasting/blob/aa49155432d3c28f15d6c99d1d3389caafd60f7c/img/3.png)
 
 როგორ გავაკეთეთ Validation?
 მონაცემები შემთხვევითად არ გაგვიყვია, რადგან დროითი რიგების შემთხვევაში Random Split-მა შეიძლება მომავალი ინფორმაცია ტრენინგში გადაიტანოს.
@@ -182,9 +274,9 @@ RMSE = 3782.12
 WMAE = 1869.07
 
 
-![img alt](https://github.com/TamarSarchimelia/Walmart-Recruiting---Store-Sales-Forecasting/blob/1f3b8e761ed30a99e54901d2f323685b3788cc72/Screenshot%20from%202026-07-25%2018-51-25.png)
+![img alt](https://github.com/TamarSarchimelia/Walmart-Recruiting---Store-Sales-Forecasting/blob/aa49155432d3c28f15d6c99d1d3389caafd60f7c/img/4.png)
 
-![img alt](https://github.com/TamarSarchimelia/Walmart-Recruiting---Store-Sales-Forecasting/blob/0d64a707d0af51bd6617b44fbacf43fc2ed230c6/Screenshot%20from%202026-07-25%2018-52-28.png)
+![img alt](https://github.com/TamarSarchimelia/Walmart-Recruiting---Store-Sales-Forecasting/blob/aa49155432d3c28f15d6c99d1d3389caafd60f7c/img/5.png)
 
 გაუმჯობესებული Lag მოდელი
 Baseline N-BEATS-ის შემდეგ შევქმენით გაუმჯობესებული სეზონური მოდელი, რადგან Walmart-ის გაყიდვებში წლიური სეზონურობა ძალიან მნიშვნელოვანია. ამისთვის გამოვიყენეთ Lag 51, Lag 52 და Lag 53, ანუ მიმდინარე კვირის გაყიდვების პროგნოზისთვის ვიღებდით დაახლოებით ერთი წლის წინანდელ იმავე და მის მეზობელ კვირებს.
@@ -198,6 +290,19 @@ RMSE = 3620.82
 WMAE = 1712.88 
 Baseline N-BEATS-ის WMAE იყო 1869.07, ხოლო Lag მოდელის — 1712.88. რადგან WMAE-ში ნაკლები მნიშვნელობა უკეთეს შედეგს ნიშნავს, Lag მოდელმა უკეთესი შედეგი აჩვენა. მან უფრო ზუსტად დაიჭირა წლიური სეზონურობა და Holiday პერიოდებთან დაკავშირებული გაყიდვების ცვლილებები.
 საბოლოოდ სრული Train მონაცემების გამოყენებით იგივე Lag მეთოდით შევქმენით 115,064 Test პროგნოზი, გადავიყვანეთ Kaggle-ის მოთხოვნილ Id და Weekly_Sales ფორმატში და შევინახეთ optimized_seasonal_submission.csv ფაილად. ეს იყო მოდელი, რომლის Submission-იც Kaggle-ზე ავტვირთეთ.
+
+![img alt](https://github.com/TamarSarchimelia/Walmart-Recruiting---Store-Sales-Forecasting/blob/aa49155432d3c28f15d6c99d1d3389caafd60f7c/img/6.png)
+
+![img alt](https://github.com/TamarSarchimelia/Walmart-Recruiting---Store-Sales-Forecasting/blob/aa49155432d3c28f15d6c99d1d3389caafd60f7c/img/7.png)
+
+![img alt](https://github.com/TamarSarchimelia/Walmart-Recruiting---Store-Sales-Forecasting/blob/aa49155432d3c28f15d6c99d1d3389caafd60f7c/img/8.png)
+
+![img alt](https://github.com/TamarSarchimelia/Walmart-Recruiting---Store-Sales-Forecasting/blob/aa49155432d3c28f15d6c99d1d3389caafd60f7c/img/9.png)
+
+დასკვნა
+საბოლოოდ N-BEATS-მა თითოეული Store–Department-ის წინა 52 კვირის გაყიდვებზე დაყრდნობით შექმნა მომდევნო 40 კვირის პროგნოზი. ჩვენ არ გამოგვიყენებია ხელით შექმნილი Lag ან Rolling Features; მოდელმა გაყიდვების ძირითადი ტენდენციები და რთული დროითი პატერნები უშუალოდ ისტორიული მონაცემებიდან ისწავლა.
+
+
 
 
 4.5 LightGBM
@@ -312,17 +417,9 @@ TFT	     | ძლიერი multivariate forecasting, attention mechanism	   |
 Tree-based მოდელები (LightGBM, XGBoost) აჩვენებენ კარგ შედეგებს feature engineering-ის გამოყენებით, განსაკუთრებით tabular მონაცემებზე.
 Deep learning მოდელები (DLinear, N-BEATS, PatchTST) უკეთ უმკლავდებიან complex temporal patterns-ს და გრძელვადიან დამოკიდებულებებს.
 Prophet ეფექტურია trend და seasonality-ის მარტივი შემთხვევებისთვის, თუმცა რთულ მონაცემებზე ნაკლებად მოქნილია.
-საბოლოოდ, საუკეთესო შედეგი მიღწეულ იქნა LGBM მოდელით, რომელმაც ყველაზე ეფექტურად დაიჭირა როგორც სეზონურობა, ასევე არაწრფივი ცვლილებები.
+საბოლოოდ, საუკეთესო შედეგი მიღწეულ იქნა nbeat მოდელით, რომელმაც ყველაზე ეფექტურად დაიჭირა როგორც სეზონურობა, ასევე არაწრფივი ცვლილებები.
 
 mlflow:
 https://dagshub.com/tsarc21/Walmart-Recruiting---Store-Sales-Forecasting.mlflow/#/experiments
 
 
-------------------------------------
-Extention
-timesFM
-თავიდან საბაზისო მოდელზე გავტესტე. სადაც წინა "საშუალო" მაჩვენებლებზე დიდი განსხვავება არ იქმენიბოდა. შემდეგომ კი ჰიპერ პარამეტრები ვცვალე. სადღაცა ოდნავი overfitting ში წავედი, თუმცა საბოლოოდ ასეთი პარამეტრები მივიღე:
-val_RMSE - 2824.005493
-val_MAE - 1389.378972
-val_WMAE - 0.082456
-რაც ერთ-ერთი საუკეთესო მოდელი აღმოჩნდა და თან ბევრი წვალების გარეშე მივიღე ასეთი შედეგი
